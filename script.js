@@ -158,9 +158,6 @@ function initializeSalgados() {
         // Inicializar estado
         orderState.salgados[itemName] = { quantity: 0, price: price };
         
-        // Aplicar validação numérica
-        applyNumericValidation(qtyInput);
-        
         // Event listeners para botões
         minusBtn.addEventListener('click', () => {
             let currentQty = parseInt(qtyInput.value) || 0;
@@ -460,9 +457,6 @@ function initializeBebidas() {
         
         // Inicializar estado
         orderState.bebidas[itemName] = { quantity: 0, price: price };
-        
-        // Aplicar validação numérica
-        applyNumericValidation(qtyInput);
         
         // Event listeners para botões
         minusBtn.addEventListener('click', () => {
@@ -903,7 +897,7 @@ function validateOrder() {
     
     // Adicionar avisos se houver
     if (orderState.total < 10) {
-        warnings.push('💡 Valor mínimo recomendado: R$ 10,00 para melhor aproveitamento');
+        warnings.push('💡 Pedidos pequenos podem ter taxa de entrega adicional');
     }
     
     // Mostrar erros se houver
@@ -1015,7 +1009,13 @@ function generateOrderSummary() {
     if (dataObj.getTime() === hoje.getTime()) {
         dataText = 'hoje';
     } else {
-                            errors.push(`🍗 Faltam ${expectedSabores - totalSabores} sabores no ${config.name} (${combo.quantity} combos)`);
+        const amanha = new Date(hoje);
+        amanha.setDate(amanha.getDate() + 1);
+        if (dataObj.getTime() === amanha.getTime()) {
+            dataText = 'amanhã';
+        } else {
+            dataText = dataObj.toLocaleDateString('pt-BR');
+        }
     }
     
     let resumo = `👤Resumo do pedido de: ${nome}\n\n`;
@@ -1031,7 +1031,7 @@ function generateOrderSummary() {
                 resumo += `🍱${config.name} - ${comboTypeText} - R$${total.toFixed(2)}\n`;
             } else {
                 resumo += `🍱${combo.quantity} ${config.name} - ${comboTypeText} - R$${total.toFixed(2)}\n`;
-                                errors.push(`🥤 Faltam ${expectedRefris - totalRefris} refrigerantes no ${config.name} (${combo.quantity} combos)`);
+            }
             
             // Sabores
             Object.entries(combo.sabores).forEach(([saborName, qty]) => {
