@@ -67,16 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeModal();
     initializeBackToTop();
     
-    // Definir data de hoje como padrão
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('data-retirada').value = today;
-    
-    // Definir horário atual + 1 hora como padrão
-    const now = new Date();
-    now.setHours(now.getHours() + 1);
-    const timeString = now.getHours().toString().padStart(2, '0') + ':' + 
-                     now.getMinutes().toString().padStart(2, '0');
-    document.getElementById('horario-retirada').value = timeString;
+    // Campos de data e hora vazios por padrão - cliente deve escolher conscientemente
 });
 
 // Detectar navegador e aplicar otimizações específicas
@@ -312,9 +303,22 @@ function initializeComboSabores(card, comboName, config) {
                 input.value = 0;
             }
             
-            // Aplicar trava automática em tempo real
-            quantity = applySaborLimit(comboName, saborName, quantity, input, config);
+            // Aplicar trava automática em tempo real com feedback visual
+            quantity = applySaborLimitWithFeedback(comboName, saborName, quantity, input, config, card);
             
+            orderState.combos[comboName].sabores[saborName] = quantity;
+            updateComboSaboresCounter(comboName, card, config);
+        });
+        
+        // Validação em tempo real durante digitação
+        input.addEventListener('keyup', () => {
+            let quantity = parseInt(input.value) || 0;
+            if (quantity < 0) {
+                quantity = 0;
+                input.value = 0;
+            }
+            
+            quantity = applySaborLimitWithFeedback(comboName, saborName, quantity, input, config, card);
             orderState.combos[comboName].sabores[saborName] = quantity;
             updateComboSaboresCounter(comboName, card, config);
         });
@@ -325,7 +329,7 @@ function initializeComboSabores(card, comboName, config) {
         // Validar novamente ao perder foco
         input.addEventListener('blur', () => {
             let quantity = parseInt(input.value) || 0;
-            quantity = applySaborLimit(comboName, saborName, quantity, input, config);
+            quantity = applySaborLimitWithFeedback(comboName, saborName, quantity, input, config, card);
             orderState.combos[comboName].sabores[saborName] = quantity;
             updateComboSaboresCounter(comboName, card, config);
         });
@@ -346,9 +350,22 @@ function initializeComboRefrigerantes(card, comboName, config) {
                 input.value = 0;
             }
             
-            // Aplicar trava automática em tempo real para refrigerantes
-            quantity = applyRefriLimit(comboName, refriName, quantity, input, config);
+            // Aplicar trava automática em tempo real para refrigerantes com feedback
+            quantity = applyRefriLimitWithFeedback(comboName, refriName, quantity, input, config, card);
             
+            orderState.combos[comboName].refrigerantes[refriName] = quantity;
+            updateComboRefriCounter(comboName, card.querySelector('.refri-selection'), config);
+        });
+        
+        // Validação em tempo real durante digitação
+        input.addEventListener('keyup', () => {
+            let quantity = parseInt(input.value) || 0;
+            if (quantity < 0) {
+                quantity = 0;
+                input.value = 0;
+            }
+            
+            quantity = applyRefriLimitWithFeedback(comboName, refriName, quantity, input, config, card);
             orderState.combos[comboName].refrigerantes[refriName] = quantity;
             updateComboRefriCounter(comboName, card.querySelector('.refri-selection'), config);
         });
@@ -359,7 +376,7 @@ function initializeComboRefrigerantes(card, comboName, config) {
         // Validar novamente ao perder foco
         input.addEventListener('blur', () => {
             let quantity = parseInt(input.value) || 0;
-            quantity = applyRefriLimit(comboName, refriName, quantity, input, config);
+            quantity = applyRefriLimitWithFeedback(comboName, refriName, quantity, input, config, card);
             orderState.combos[comboName].refrigerantes[refriName] = quantity;
             updateComboRefriCounter(comboName, card.querySelector('.refri-selection'), config);
         });
@@ -537,8 +554,8 @@ function getCurrentRefriTotal(comboName, excludeRefri = null) {
     return total;
 }
 
-// Novas funções de trava automática
-function applySaborLimit(comboName, saborName, quantity, input, config) {
+// Novas funções de trava automática com feedback visual
+function applySaborLimitWithFeedback(comboName, saborName, quantity, input, config, card) {
     const combo = orderState.combos[comboName];
     if (combo.quantity === 0) return 0;
     
@@ -551,18 +568,21 @@ function applySaborLimit(comboName, saborName, quantity, input, config) {
         const correctedQty = Math.max(0, maxForThisInput);
         input.value = correctedQty;
         
-        if (quantity > 0) {
+        if (quantity > 0 && maxForThisInput >= 0) {
             const configName = comboConfigs[comboName].name;
-            showTempMessage(`🚫 Máximo ${maxAllowed} mini salgados no ${configName}. Ajustado automaticamente para ${correctedQty}.`, 'warning');
+            const remaining = maxAllowed - currentTotal;
+            showInstantFeedback(input, `Você só pode adicionar mais ${remaining} unidades neste combo`, 'warning');
         }
         
         return correctedQty;
     }
     
+    // Limpar feedback se quantidade está ok
+    clearInstantFeedback(input);
     return quantity;
 }
 
-function applyRefriLimit(comboName, refriName, quantity, input, config) {
+function applyRefriLimitWithFeedback(comboName, refriName, quantity, input, config, card) {
     const combo = orderState.combos[comboName];
     if (!combo.withRefri || combo.quantity === 0) return 0;
     
@@ -575,15 +595,61 @@ function applyRefriLimit(comboName, refriName, quantity, input, config) {
         const correctedQty = Math.max(0, maxForThisInput);
         input.value = correctedQty;
         
-        if (quantity > 0) {
+        if (quantity > 0 && maxForThisInput >= 0) {
             const configName = comboConfigs[comboName].name;
-            showTempMessage(`🚫 Máximo ${maxAllowed} refrigerantes no ${configName}. Ajustado automaticamente para ${correctedQty}.`, 'warning');
+            const remaining = maxAllowed - currentTotal;
+            showInstantFeedback(input, `Você só pode adicionar mais ${remaining} refrigerantes neste combo`, 'warning');
         }
         
         return correctedQty;
     }
     
+    // Limpar feedback se quantidade está ok
+    clearInstantFeedback(input);
     return quantity;
+}
+
+// Sistema de feedback instantâneo visual
+function showInstantFeedback(input, message, type = 'warning') {
+    // Remover feedback anterior se existir
+    clearInstantFeedback(input);
+    
+    const feedbackDiv = document.createElement('div');
+    feedbackDiv.className = 'instant-feedback';
+    feedbackDiv.textContent = message;
+    feedbackDiv.style.cssText = `
+        color: #DC143C;
+        font-size: 0.9rem;
+        font-weight: bold;
+        margin-top: 5px;
+        padding: 8px 12px;
+        background-color: #FFF5F5;
+        border: 1px solid #DC143C;
+        border-radius: 6px;
+        animation: fadeInScale 0.3s ease;
+        position: relative;
+        z-index: 10;
+    `;
+    
+    // Inserir após o input
+    input.parentNode.insertBefore(feedbackDiv, input.nextSibling);
+    
+    // Auto-remover após 3 segundos
+    setTimeout(() => {
+        clearInstantFeedback(input);
+    }, 3000);
+}
+
+function clearInstantFeedback(input) {
+    const existingFeedback = input.parentNode.querySelector('.instant-feedback');
+    if (existingFeedback) {
+        existingFeedback.style.animation = 'fadeOutScale 0.3s ease';
+        setTimeout(() => {
+            if (existingFeedback.parentNode) {
+                existingFeedback.parentNode.removeChild(existingFeedback);
+            }
+        }, 300);
+    }
 }
 
 // Função para aplicar validação numérica em inputs
@@ -834,6 +900,11 @@ function validateOrder() {
         }
     }
     
+    // Validar se o horário foi preenchido
+    if (!horario) {
+        errors.push('🕐 Selecione o horário de retirada');
+    }
+    
     // Validar se tem pelo menos um item no pedido
     let hasItems = false;
     
@@ -1024,7 +1095,8 @@ function generateOrderSummary() {
         }
     }
     
-    let resumo = `👤Resumo do pedido de: ${nome}\n\n`;
+    // Usar emojis compatíveis com todos os navegadores
+    let resumo = `RESUMO DO PEDIDO DE: ${nome}\n\n`;
     
     // Combos
     Object.entries(orderState.combos).forEach(([comboName, combo]) => {
@@ -1034,16 +1106,16 @@ function generateOrderSummary() {
             const total = combo.quantity * combo.price;
             
             if (combo.quantity === 1) {
-                resumo += `🍱${config.name} - ${comboTypeText} - R$${total.toFixed(2)}\n`;
+                resumo += `COMBO: ${config.name} - ${comboTypeText} - R$${total.toFixed(2)}\n`;
             } else {
-                resumo += `🍱${combo.quantity} ${config.name} - ${comboTypeText} - R$${total.toFixed(2)}\n`;
+                resumo += `COMBO: ${combo.quantity} ${config.name} - ${comboTypeText} - R$${total.toFixed(2)}\n`;
             }
             
             // Sabores
             Object.entries(combo.sabores).forEach(([saborName, qty]) => {
                 if (qty > 0) {
                     const displayName = saborNames[saborName] || saborName;
-                    resumo += `  • ${qty} ${displayName}\n`;
+                    resumo += `  - ${qty} ${displayName}\n`;
                 }
             });
             
@@ -1052,7 +1124,7 @@ function generateOrderSummary() {
                 Object.entries(combo.refrigerantes).forEach(([refriName, qty]) => {
                     if (qty > 0) {
                         const displayName = refriNames[refriName] || refriName;
-                        resumo += `  • ${qty} ${displayName}\n`;
+                        resumo += `  - ${qty} ${displayName}\n`;
                     }
                 });
             }
@@ -1064,11 +1136,11 @@ function generateOrderSummary() {
     // Salgados avulsos
     const salgadosWithQty = Object.entries(orderState.salgados).filter(([_, item]) => item.quantity > 0);
     if (salgadosWithQty.length > 0) {
-        resumo += '🍗Salgados avulsos:\n';
+        resumo += 'SALGADOS AVULSOS:\n';
         salgadosWithQty.forEach(([name, item]) => {
             const displayName = saborNames[name] || name;
             const total = item.quantity * item.price;
-            resumo += `  • ${item.quantity} ${displayName} - R$${total.toFixed(2)}\n`;
+            resumo += `  - ${item.quantity} ${displayName} - R$${total.toFixed(2)}\n`;
         });
         resumo += '\n';
     }
@@ -1076,18 +1148,18 @@ function generateOrderSummary() {
     // Bebidas avulsas
     const bebidasWithQty = Object.entries(orderState.bebidas).filter(([_, item]) => item.quantity > 0);
     if (bebidasWithQty.length > 0) {
-        resumo += '🥤Bebidas avulsas:\n';
+        resumo += 'BEBIDAS:\n';
         bebidasWithQty.forEach(([name, item]) => {
             let displayName = name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             const total = item.quantity * item.price;
-            resumo += `  • ${item.quantity} ${displayName} - R$${total.toFixed(2)}\n`;
+            resumo += `  - ${item.quantity} ${displayName} - R$${total.toFixed(2)}\n`;
         });
         resumo += '\n';
     }
     
-    resumo += `📅 _Para ${dataText} às ${horario}_\n\n`;
-    resumo += `Valor Total = *💰R$${orderState.total.toFixed(2)}💰*\n\n`;
-    resumo += '*📌RETIRADA NA LOJA 01 AO LADO DO BUDEGÃO SUPERMERCADO*';
+    resumo += `DATA: Para ${dataText} as ${horario}\n\n`;
+    resumo += `VALOR TOTAL = *R$${orderState.total.toFixed(2)}*\n\n`;
+    resumo += '*RETIRADA NA LOJA 01 AO LADO DO BUDEGAO SUPERMERCADO*';
     
     return resumo;
 }
