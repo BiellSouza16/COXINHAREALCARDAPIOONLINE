@@ -158,6 +158,9 @@ function initializeSalgados() {
         // Inicializar estado
         orderState.salgados[itemName] = { quantity: 0, price: price };
         
+        // Aplicar validação numérica
+        applyNumericValidation(qtyInput);
+        
         // Event listeners para botões
         minusBtn.addEventListener('click', () => {
             let currentQty = parseInt(qtyInput.value) || 0;
@@ -309,53 +312,22 @@ function initializeComboSabores(card, comboName, config) {
                 input.value = 0;
             }
             
-            // Validar limite máximo baseado na quantidade de combos
-            const maxAllowed = getMaxSaboresAllowed(comboName, config);
-            const currentTotal = getCurrentSaboresTotal(comboName, saborName);
-            const maxForThisInput = maxAllowed - currentTotal + orderState.combos[comboName].sabores[saborName];
-            
-            if (quantity > maxForThisInput) {
-                quantity = maxForThisInput;
-                input.value = quantity;
-                showTempMessage(`Máximo ${maxForThisInput} para este sabor neste combo`, 'warning');
-            }
+            // Aplicar trava automática em tempo real
+            quantity = applySaborLimit(comboName, saborName, quantity, input, config);
             
             orderState.combos[comboName].sabores[saborName] = quantity;
             updateComboSaboresCounter(comboName, card, config);
         });
         
-        // Prevenir entrada de valores inválidos
-        input.addEventListener('keydown', (e) => {
-            // Permitir apenas números, backspace, delete, tab, escape, enter
-            if ([46, 8, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
-                // Permitir Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-                (e.keyCode === 65 && e.ctrlKey === true) ||
-                (e.keyCode === 67 && e.ctrlKey === true) ||
-                (e.keyCode === 86 && e.ctrlKey === true) ||
-                (e.keyCode === 88 && e.ctrlKey === true) ||
-                // Permitir home, end, left, right
-                (e.keyCode >= 35 && e.keyCode <= 39)) {
-                return;
-            }
-            // Garantir que é um número
-            if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
-                e.preventDefault();
-            }
-        });
+        // Aplicar validação de entrada numérica
+        applyNumericValidation(input);
         
-        // Validar ao perder foco
+        // Validar novamente ao perder foco
         input.addEventListener('blur', () => {
-            const maxAllowed = getMaxSaboresAllowed(comboName, config);
-            const currentTotal = getCurrentSaboresTotal(comboName, saborName);
-            const maxForThisInput = maxAllowed - currentTotal + orderState.combos[comboName].sabores[saborName];
-            
             let quantity = parseInt(input.value) || 0;
-            if (quantity > maxForThisInput) {
-                quantity = maxForThisInput;
-                input.value = quantity;
-                orderState.combos[comboName].sabores[saborName] = quantity;
-                updateComboSaboresCounter(comboName, card, config);
-            }
+            quantity = applySaborLimit(comboName, saborName, quantity, input, config);
+            orderState.combos[comboName].sabores[saborName] = quantity;
+            updateComboSaboresCounter(comboName, card, config);
         });
     });
 }
@@ -374,55 +346,22 @@ function initializeComboRefrigerantes(card, comboName, config) {
                 input.value = 0;
             }
             
-            // Validar limite máximo baseado na quantidade de combos
-            const combo = orderState.combos[comboName];
-            if (combo.withRefri) {
-                const maxAllowed = combo.quantity * config.refriCount.com;
-                const currentTotal = getCurrentRefriTotal(comboName, refriName);
-                const maxForThisInput = maxAllowed - currentTotal + combo.refrigerantes[refriName];
-                
-                if (quantity > maxForThisInput) {
-                    quantity = maxForThisInput;
-                    input.value = quantity;
-                    showTempMessage(`Máximo ${maxForThisInput} para este refrigerante neste combo`, 'warning');
-                }
-            }
+            // Aplicar trava automática em tempo real para refrigerantes
+            quantity = applyRefriLimit(comboName, refriName, quantity, input, config);
             
             orderState.combos[comboName].refrigerantes[refriName] = quantity;
             updateComboRefriCounter(comboName, card.querySelector('.refri-selection'), config);
         });
         
-        // Prevenir entrada de valores inválidos
-        input.addEventListener('keydown', (e) => {
-            if ([46, 8, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
-                (e.keyCode === 65 && e.ctrlKey === true) ||
-                (e.keyCode === 67 && e.ctrlKey === true) ||
-                (e.keyCode === 86 && e.ctrlKey === true) ||
-                (e.keyCode === 88 && e.ctrlKey === true) ||
-                (e.keyCode >= 35 && e.keyCode <= 39)) {
-                return;
-            }
-            if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
-                e.preventDefault();
-            }
-        });
+        // Aplicar validação de entrada numérica
+        applyNumericValidation(input);
         
-        // Validar ao perder foco
+        // Validar novamente ao perder foco
         input.addEventListener('blur', () => {
-            const combo = orderState.combos[comboName];
-            if (combo.withRefri) {
-                const maxAllowed = combo.quantity * config.refriCount.com;
-                const currentTotal = getCurrentRefriTotal(comboName, refriName);
-                const maxForThisInput = maxAllowed - currentTotal + combo.refrigerantes[refriName];
-                
-                let quantity = parseInt(input.value) || 0;
-                if (quantity > maxForThisInput) {
-                    quantity = maxForThisInput;
-                    input.value = quantity;
-                    combo.refrigerantes[refriName] = quantity;
-                    updateComboRefriCounter(comboName, card.querySelector('.refri-selection'), config);
-                }
-            }
+            let quantity = parseInt(input.value) || 0;
+            quantity = applyRefriLimit(comboName, refriName, quantity, input, config);
+            orderState.combos[comboName].refrigerantes[refriName] = quantity;
+            updateComboRefriCounter(comboName, card.querySelector('.refri-selection'), config);
         });
     });
 }
@@ -522,6 +461,9 @@ function initializeBebidas() {
         // Inicializar estado
         orderState.bebidas[itemName] = { quantity: 0, price: price };
         
+        // Aplicar validação numérica
+        applyNumericValidation(qtyInput);
+        
         // Event listeners para botões
         minusBtn.addEventListener('click', () => {
             let currentQty = parseInt(qtyInput.value) || 0;
@@ -595,6 +537,87 @@ function getCurrentRefriTotal(comboName, excludeRefri = null) {
     return total;
 }
 
+// Novas funções de trava automática
+function applySaborLimit(comboName, saborName, quantity, input, config) {
+    const combo = orderState.combos[comboName];
+    if (combo.quantity === 0) return 0;
+    
+    const maxAllowed = combo.quantity * config.units;
+    const currentTotal = getCurrentSaboresTotal(comboName, saborName);
+    const currentSaborQty = combo.sabores[saborName] || 0;
+    const maxForThisInput = maxAllowed - currentTotal + currentSaborQty;
+    
+    if (quantity > maxForThisInput) {
+        const correctedQty = Math.max(0, maxForThisInput);
+        input.value = correctedQty;
+        
+        if (quantity > 0) {
+            const configName = comboConfigs[comboName].name;
+            showTempMessage(`🚫 Máximo ${maxAllowed} mini salgados no ${configName}. Ajustado automaticamente para ${correctedQty}.`, 'warning');
+        }
+        
+        return correctedQty;
+    }
+    
+    return quantity;
+}
+
+function applyRefriLimit(comboName, refriName, quantity, input, config) {
+    const combo = orderState.combos[comboName];
+    if (!combo.withRefri || combo.quantity === 0) return 0;
+    
+    const maxAllowed = combo.quantity * config.refriCount.com;
+    const currentTotal = getCurrentRefriTotal(comboName, refriName);
+    const currentRefriQty = combo.refrigerantes[refriName] || 0;
+    const maxForThisInput = maxAllowed - currentTotal + currentRefriQty;
+    
+    if (quantity > maxForThisInput) {
+        const correctedQty = Math.max(0, maxForThisInput);
+        input.value = correctedQty;
+        
+        if (quantity > 0) {
+            const configName = comboConfigs[comboName].name;
+            showTempMessage(`🚫 Máximo ${maxAllowed} refrigerantes no ${configName}. Ajustado automaticamente para ${correctedQty}.`, 'warning');
+        }
+        
+        return correctedQty;
+    }
+    
+    return quantity;
+}
+
+// Função para aplicar validação numérica em inputs
+function applyNumericValidation(input) {
+    // Prevenir entrada de valores inválidos
+    input.addEventListener('keydown', (e) => {
+        // Permitir apenas números, backspace, delete, tab, escape, enter
+        if ([46, 8, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
+            // Permitir Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+            (e.keyCode === 65 && e.ctrlKey === true) ||
+            (e.keyCode === 67 && e.ctrlKey === true) ||
+            (e.keyCode === 86 && e.ctrlKey === true) ||
+            (e.keyCode === 88 && e.ctrlKey === true) ||
+            // Permitir home, end, left, right
+            (e.keyCode >= 35 && e.keyCode <= 39)) {
+            return;
+        }
+        // Garantir que é um número
+        if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+            e.preventDefault();
+        }
+    });
+    
+    // Prevenir entrada de caracteres não numéricos via paste
+    input.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const paste = (e.clipboardData || window.clipboardData).getData('text');
+        const numericValue = parseInt(paste) || 0;
+        if (numericValue >= 0) {
+            input.value = numericValue;
+            input.dispatchEvent(new Event('input'));
+        }
+    });
+}
 // Sistema de mensagens temporárias melhorado
 function showTempMessage(message, type = 'error') {
     const messageContainer = document.getElementById('error-messages');
@@ -685,7 +708,7 @@ function updateOrderSummary() {
         salgadosWithQty.forEach(([name, item]) => {
             const displayName = saborNames[name] || name;
             const total = item.quantity * item.price;
-            html += `<li>${item.quantity}x ${displayName} - R$ ${total.toFixed(2).replace('.', ',')}</li>`;
+            html += `<li>${item.quantity} ${displayName} - R$ ${total.toFixed(2).replace('.', ',')}</li>`;
         });
         html += '</ul></div>';
     }
@@ -700,7 +723,7 @@ function updateOrderSummary() {
             const total = combo.quantity * combo.price;
             const comboTypeText = combo.withRefri ? 'com refrigerante' : 'sem refrigerante';
             html += `<div class="combo-summary">`;
-            html += `<p><strong>${combo.quantity}x ${config.name} (${comboTypeText}) - R$ ${total.toFixed(2).replace('.', ',')}</strong></p>`;
+            html += `<p><strong>${combo.quantity} ${config.name} (${comboTypeText}) - R$ ${total.toFixed(2).replace('.', ',')}</strong></p>`;
             
             // Sabores do combo
             const saboresWithQty = Object.entries(combo.sabores).filter(([_, qty]) => qty > 0);
@@ -739,7 +762,7 @@ function updateOrderSummary() {
             const total = item.quantity * item.price;
             // Converter nome da bebida para display
             let displayName = name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            html += `<li>${item.quantity}x ${displayName} - R$ ${total.toFixed(2).replace('.', ',')}</li>`;
+            html += `<li>${item.quantity} ${displayName} - R$ ${total.toFixed(2).replace('.', ',')}</li>`;
         });
         html += '</ul></div>';
     }
@@ -880,7 +903,7 @@ function validateOrder() {
     
     // Adicionar avisos se houver
     if (orderState.total < 10) {
-        warnings.push('💡 Pedidos pequenos podem ter taxa de entrega adicional');
+        warnings.push('💡 Valor mínimo recomendado: R$ 10,00 para melhor aproveitamento');
     }
     
     // Mostrar erros se houver
@@ -992,7 +1015,7 @@ function generateOrderSummary() {
     if (dataObj.getTime() === hoje.getTime()) {
         dataText = 'hoje';
     } else {
-        dataText = dataObj.toLocaleDateString('pt-BR');
+                            errors.push(`🍗 Faltam ${expectedSabores - totalSabores} sabores no ${config.name} (${combo.quantity} combos)`);
     }
     
     let resumo = `👤Resumo do pedido de: ${nome}\n\n`;
@@ -1007,8 +1030,8 @@ function generateOrderSummary() {
             if (combo.quantity === 1) {
                 resumo += `🍱${config.name} - ${comboTypeText} - R$${total.toFixed(2)}\n`;
             } else {
-                resumo += `🍱${combo.quantity}x ${config.name} - ${comboTypeText} - R$${total.toFixed(2)}\n`;
-            }
+                resumo += `🍱${combo.quantity} ${config.name} - ${comboTypeText} - R$${total.toFixed(2)}\n`;
+                                errors.push(`🥤 Faltam ${expectedRefris - totalRefris} refrigerantes no ${config.name} (${combo.quantity} combos)`);
             
             // Sabores
             Object.entries(combo.sabores).forEach(([saborName, qty]) => {
@@ -1039,7 +1062,7 @@ function generateOrderSummary() {
         salgadosWithQty.forEach(([name, item]) => {
             const displayName = saborNames[name] || name;
             const total = item.quantity * item.price;
-            resumo += `  • ${item.quantity}x ${displayName} - R$${total.toFixed(2)}\n`;
+            resumo += `  • ${item.quantity} ${displayName} - R$${total.toFixed(2)}\n`;
         });
         resumo += '\n';
     }
@@ -1051,7 +1074,7 @@ function generateOrderSummary() {
         bebidasWithQty.forEach(([name, item]) => {
             let displayName = name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             const total = item.quantity * item.price;
-            resumo += `  • ${item.quantity}x ${displayName} - R$${total.toFixed(2)}\n`;
+            resumo += `  • ${item.quantity} ${displayName} - R$${total.toFixed(2)}\n`;
         });
         resumo += '\n';
     }
@@ -1067,8 +1090,8 @@ function sendToWhatsApp() {
     const resumoText = generateOrderSummary();
     const encodedText = encodeURIComponent(resumoText);
     
-    // Número do WhatsApp (substitua pelo número real da lanchonete)
-    const phoneNumber = '5573981741968'; // Formato: código do país + código da área + número
+    // Número do WhatsApp da Coxinha Real
+    const phoneNumber = '5573981741968';
     
     const whatsappURL = `https://wa.me/${phoneNumber}?text=${encodedText}`;
     
