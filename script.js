@@ -158,6 +158,9 @@ function initializeSalgados() {
         // Inicializar estado
         orderState.salgados[itemName] = { quantity: 0, price: price };
         
+        // Aplicar validação numérica
+        applyNumericValidation(qtyInput);
+        
         // Event listeners para botões
         minusBtn.addEventListener('click', () => {
             let currentQty = parseInt(qtyInput.value) || 0;
@@ -897,7 +900,7 @@ function validateOrder() {
     
     // Adicionar avisos se houver
     if (orderState.total < 10) {
-        warnings.push('💡 Pedidos pequenos podem ter taxa de entrega adicional');
+        warnings.push('💡 Valor mínimo recomendado: R$ 10,00 para melhor aproveitamento');
     }
     
     // Mostrar erros se houver
@@ -1010,7 +1013,7 @@ function generateOrderSummary() {
         dataText = 'hoje';
     } else {
         const amanha = new Date(hoje);
-        amanha.setDate(amanha.getDate() + 1);
+        amanha.setDate(hoje.getDate() + 1);
         if (dataObj.getTime() === amanha.getTime()) {
             dataText = 'amanhã';
         } else {
