@@ -557,7 +557,7 @@ body {
     max-width: 400px;
 }
 
-.error-message {
+.error-message, .validation-message, .temp-message {
     background-color: #DC143C;
     color: #fff;
     padding: 15px 20px;
@@ -566,6 +566,15 @@ body {
     font-weight: bold;
     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     animation: slideInRight 0.3s ease;
+    opacity: 1;
+}
+
+.validation-message.warning, .temp-message.warning {
+    background-color: #FF8C00;
+}
+
+.temp-message.success {
+    background-color: #25D366;
 }
 
 /* Animações */
@@ -593,6 +602,17 @@ body {
     to {
         transform: translateX(0);
         opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
     }
 }
 
@@ -694,6 +714,70 @@ body {
 .error-highlight {
     background-color: #FFF5F5 !important;
     border-color: #DC143C !important;
+}
+
+/* Melhorias de compatibilidade cross-browser */
+.qty-input, .combo-qty-input, .sabor-qty, .refri-qty, .form-input {
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+    appearance: none;
+    -webkit-border-radius: 8px;
+    -moz-border-radius: 8px;
+    border-radius: 8px;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+/* Remover spinners do input number */
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button,
+.combo-qty-input::-webkit-outer-spin-button,
+.combo-qty-input::-webkit-inner-spin-button,
+.sabor-qty::-webkit-outer-spin-button,
+.sabor-qty::-webkit-inner-spin-button,
+.refri-qty::-webkit-outer-spin-button,
+.refri-qty::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Firefox */
+.qty-input[type=number],
+.combo-qty-input[type=number],
+.sabor-qty[type=number],
+.refri-qty[type=number] {
+    -moz-appearance: textfield;
+}
+
+/* Melhorias para touch devices */
+@media (hover: none) and (pointer: coarse) {
+    .nav-btn, .qty-btn, .finalize-btn, .whatsapp-btn, .cancel-btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    .qty-input, .combo-qty-input, .sabor-qty, .refri-qty {
+        min-height: 44px;
+        font-size: 16px; /* Previne zoom no iOS */
+    }
+    
+    .form-input {
+        min-height: 44px;
+        font-size: 16px;
+    }
+}
+
+/* Otimizações para iOS Safari */
+@supports (-webkit-touch-callout: none) {
+    .modal-content {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .qty-input, .combo-qty-input, .sabor-qty, .refri-qty, .form-input {
+        -webkit-appearance: none;
+        border-radius: 8px;
+    }
 }
 
 /* Melhorias visuais */

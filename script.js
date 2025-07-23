@@ -56,6 +56,9 @@ const comboConfigs = {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
+    // Detectar e otimizar para diferentes navegadores
+    detectBrowserOptimizations();
+    
     initializeNavigation();
     initializeSalgados();
     initializeCombos();
@@ -75,6 +78,47 @@ document.addEventListener('DOMContentLoaded', function() {
                      now.getMinutes().toString().padStart(2, '0');
     document.getElementById('horario-retirada').value = timeString;
 });
+
+// Detectar navegador e aplicar otimizações específicas
+function detectBrowserOptimizations() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+    
+    // Otimizações para iOS
+    if (isIOS) {
+        document.body.style.webkitTextSizeAdjust = '100%';
+        // Prevenir zoom em inputs
+        const inputs = document.querySelectorAll('input[type="number"], input[type="text"], input[type="date"], input[type="time"]');
+        inputs.forEach(input => {
+            if (parseFloat(getComputedStyle(input).fontSize) < 16) {
+                input.style.fontSize = '16px';
+            }
+        });
+    }
+    
+    // Otimizações para Android
+    if (isAndroid) {
+        // Melhorar performance de scroll
+        document.body.style.overflowScrolling = 'touch';
+    }
+    
+    // Otimizações para Safari
+    if (isSafari) {
+        // Corrigir problemas de viewport
+        const viewport = document.querySelector('meta[name="viewport"]');
+        if (viewport) {
+            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+        }
+    }
+    
+    // Otimizações para Firefox
+    if (isFirefox) {
+        // Melhorar renderização de animações
+        document.documentElement.style.scrollBehavior = 'smooth';
+    }
+}
 
 // Navegação entre seções
 function initializeNavigation() {
@@ -265,8 +309,53 @@ function initializeComboSabores(card, comboName, config) {
                 input.value = 0;
             }
             
+            // Validar limite máximo baseado na quantidade de combos
+            const maxAllowed = getMaxSaboresAllowed(comboName, config);
+            const currentTotal = getCurrentSaboresTotal(comboName, saborName);
+            const maxForThisInput = maxAllowed - currentTotal + orderState.combos[comboName].sabores[saborName];
+            
+            if (quantity > maxForThisInput) {
+                quantity = maxForThisInput;
+                input.value = quantity;
+                showTempMessage(`Máximo ${maxForThisInput} para este sabor neste combo`, 'warning');
+            }
+            
             orderState.combos[comboName].sabores[saborName] = quantity;
             updateComboSaboresCounter(comboName, card, config);
+        });
+        
+        // Prevenir entrada de valores inválidos
+        input.addEventListener('keydown', (e) => {
+            // Permitir apenas números, backspace, delete, tab, escape, enter
+            if ([46, 8, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
+                // Permitir Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                (e.keyCode === 65 && e.ctrlKey === true) ||
+                (e.keyCode === 67 && e.ctrlKey === true) ||
+                (e.keyCode === 86 && e.ctrlKey === true) ||
+                (e.keyCode === 88 && e.ctrlKey === true) ||
+                // Permitir home, end, left, right
+                (e.keyCode >= 35 && e.keyCode <= 39)) {
+                return;
+            }
+            // Garantir que é um número
+            if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+                e.preventDefault();
+            }
+        });
+        
+        // Validar ao perder foco
+        input.addEventListener('blur', () => {
+            const maxAllowed = getMaxSaboresAllowed(comboName, config);
+            const currentTotal = getCurrentSaboresTotal(comboName, saborName);
+            const maxForThisInput = maxAllowed - currentTotal + orderState.combos[comboName].sabores[saborName];
+            
+            let quantity = parseInt(input.value) || 0;
+            if (quantity > maxForThisInput) {
+                quantity = maxForThisInput;
+                input.value = quantity;
+                orderState.combos[comboName].sabores[saborName] = quantity;
+                updateComboSaboresCounter(comboName, card, config);
+            }
         });
     });
 }
@@ -285,8 +374,55 @@ function initializeComboRefrigerantes(card, comboName, config) {
                 input.value = 0;
             }
             
+            // Validar limite máximo baseado na quantidade de combos
+            const combo = orderState.combos[comboName];
+            if (combo.withRefri) {
+                const maxAllowed = combo.quantity * config.refriCount.com;
+                const currentTotal = getCurrentRefriTotal(comboName, refriName);
+                const maxForThisInput = maxAllowed - currentTotal + combo.refrigerantes[refriName];
+                
+                if (quantity > maxForThisInput) {
+                    quantity = maxForThisInput;
+                    input.value = quantity;
+                    showTempMessage(`Máximo ${maxForThisInput} para este refrigerante neste combo`, 'warning');
+                }
+            }
+            
             orderState.combos[comboName].refrigerantes[refriName] = quantity;
             updateComboRefriCounter(comboName, card.querySelector('.refri-selection'), config);
+        });
+        
+        // Prevenir entrada de valores inválidos
+        input.addEventListener('keydown', (e) => {
+            if ([46, 8, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
+                (e.keyCode === 65 && e.ctrlKey === true) ||
+                (e.keyCode === 67 && e.ctrlKey === true) ||
+                (e.keyCode === 86 && e.ctrlKey === true) ||
+                (e.keyCode === 88 && e.ctrlKey === true) ||
+                (e.keyCode >= 35 && e.keyCode <= 39)) {
+                return;
+            }
+            if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+                e.preventDefault();
+            }
+        });
+        
+        // Validar ao perder foco
+        input.addEventListener('blur', () => {
+            const combo = orderState.combos[comboName];
+            if (combo.withRefri) {
+                const maxAllowed = combo.quantity * config.refriCount.com;
+                const currentTotal = getCurrentRefriTotal(comboName, refriName);
+                const maxForThisInput = maxAllowed - currentTotal + combo.refrigerantes[refriName];
+                
+                let quantity = parseInt(input.value) || 0;
+                if (quantity > maxForThisInput) {
+                    quantity = maxForThisInput;
+                    input.value = quantity;
+                    combo.refrigerantes[refriName] = quantity;
+                    updateComboRefriCounter(comboName, card.querySelector('.refri-selection'), config);
+                }
+            }
         });
     });
 }
@@ -429,6 +565,75 @@ function updateBebidaItem(itemName, quantity, price, totalElement, card) {
     
     updateGrandTotal();
     updateOrderSummary();
+}
+
+// Funções auxiliares para validação de limites
+function getMaxSaboresAllowed(comboName, config) {
+    const combo = orderState.combos[comboName];
+    return combo.quantity * config.units;
+}
+
+function getCurrentSaboresTotal(comboName, excludeSabor = null) {
+    const combo = orderState.combos[comboName];
+    let total = 0;
+    Object.entries(combo.sabores).forEach(([sabor, qty]) => {
+        if (sabor !== excludeSabor) {
+            total += qty;
+        }
+    });
+    return total;
+}
+
+function getCurrentRefriTotal(comboName, excludeRefri = null) {
+    const combo = orderState.combos[comboName];
+    let total = 0;
+    Object.entries(combo.refrigerantes).forEach(([refri, qty]) => {
+        if (refri !== excludeRefri) {
+            total += qty;
+        }
+    });
+    return total;
+}
+
+// Sistema de mensagens temporárias melhorado
+function showTempMessage(message, type = 'error') {
+    const messageContainer = document.getElementById('error-messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `temp-message ${type}`;
+    messageDiv.textContent = message;
+    
+    // Estilos baseados no tipo
+    if (type === 'warning') {
+        messageDiv.style.backgroundColor = '#FF8C00';
+        messageDiv.style.color = '#fff';
+    } else if (type === 'success') {
+        messageDiv.style.backgroundColor = '#25D366';
+        messageDiv.style.color = '#fff';
+    } else {
+        messageDiv.style.backgroundColor = '#DC143C';
+        messageDiv.style.color = '#fff';
+    }
+    
+    messageDiv.style.padding = '12px 20px';
+    messageDiv.style.borderRadius = '8px';
+    messageDiv.style.marginBottom = '10px';
+    messageDiv.style.fontWeight = 'bold';
+    messageDiv.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+    messageDiv.style.animation = 'slideInRight 0.3s ease';
+    
+    messageContainer.appendChild(messageDiv);
+    
+    // Remover após 3 segundos
+    setTimeout(() => {
+        if (messageDiv.parentNode) {
+            messageDiv.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 300);
+        }
+    }, 3000);
 }
 
 // Atualizar total geral
@@ -584,15 +789,49 @@ function validateFinalizacao() {
 // Validar pedido completo
 function validateOrder() {
     const errors = [];
+    const warnings = [];
     
     // Validar dados do cliente
     const nome = document.getElementById('cliente-nome').value.trim();
     const data = document.getElementById('data-retirada').value;
     const horario = document.getElementById('horario-retirada').value;
     
-    if (!nome) errors.push('⚠️ Informe seu nome antes de finalizar o pedido');
-    if (!data) errors.push('⚠️ Selecione a data de retirada');
-    if (!horario) errors.push('⚠️ Selecione o horário de retirada');
+    if (!nome) errors.push('👤 Informe seu nome completo');
+    if (!data) errors.push('📅 Selecione a data de retirada');
+    if (!horario) errors.push('🕐 Selecione o horário de retirada');
+    
+    // Validar se a data não é no passado
+    if (data) {
+        const selectedDate = new Date(data);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (selectedDate < today) {
+            errors.push('📅 A data de retirada não pode ser no passado');
+        }
+    }
+    
+    // Validar se tem pelo menos um item no pedido
+    let hasItems = false;
+    
+    // Verificar salgados
+    Object.values(orderState.salgados).forEach(item => {
+        if (item.quantity > 0) hasItems = true;
+    });
+    
+    // Verificar combos
+    Object.values(orderState.combos).forEach(combo => {
+        if (combo.quantity > 0) hasItems = true;
+    });
+    
+    // Verificar bebidas
+    Object.values(orderState.bebidas).forEach(item => {
+        if (item.quantity > 0) hasItems = true;
+    });
+    
+    if (!hasItems) {
+        errors.push('🛒 Adicione pelo menos um item ao seu pedido');
+    }
     
     // Validar combos
     Object.entries(orderState.combos).forEach(([comboName, combo]) => {
@@ -601,7 +840,7 @@ function validateOrder() {
             
             // Validar seleção de preço
             if (!combo.priceOption) {
-                errors.push(`⚠️ Selecione se quer ${config.name} com ou sem refrigerante`);
+                errors.push(`🍱 Selecione se quer ${config.name} com ou sem refrigerante`);
                 return;
             }
             
@@ -609,12 +848,15 @@ function validateOrder() {
             const totalSabores = Object.values(combo.sabores).reduce((sum, qty) => sum + qty, 0);
             const expectedSabores = combo.quantity * config.units;
             
-            if (totalSabores !== expectedSabores) {
+            if (totalSabores < expectedSabores) {
                 if (combo.quantity === 1) {
-                    errors.push(`⚠️ Falta selecionar os sabores dos salgados do ${config.name}`);
+                    errors.push(`🍗 Faltam ${expectedSabores - totalSabores} sabores no ${config.name}`);
                 } else {
-                    errors.push(`⚠️ Falta selecionar os sabores dos salgados do ${config.name} (${combo.quantity} unidades)`);
+                    errors.push(`🍗 Faltam ${expectedSabores - totalSabores} sabores no ${config.name} (${combo.quantity} unidades)`);
                 }
+            } else if (totalSabores > expectedSabores) {
+                const excess = totalSabores - expectedSabores;
+                errors.push(`🍗 Remova ${excess} sabores do ${config.name} (máximo: ${expectedSabores})`);
             }
             
             // Validar refrigerantes se necessário
@@ -622,42 +864,80 @@ function validateOrder() {
                 const totalRefris = Object.values(combo.refrigerantes).reduce((sum, qty) => sum + qty, 0);
                 const expectedRefris = combo.quantity * config.refriCount.com;
                 
-                if (totalRefris !== expectedRefris) {
+                if (totalRefris < expectedRefris) {
                     if (combo.quantity === 1) {
-                        errors.push(`⚠️ Selecione os refrigerantes obrigatórios do ${config.name}`);
+                        errors.push(`🥤 Faltam ${expectedRefris - totalRefris} refrigerantes no ${config.name}`);
                     } else {
-                        errors.push(`⚠️ Selecione os refrigerantes obrigatórios do ${config.name} (${combo.quantity} unidades)`);
+                        errors.push(`🥤 Faltam ${expectedRefris - totalRefris} refrigerantes no ${config.name} (${combo.quantity} unidades)`);
                     }
+                } else if (totalRefris > expectedRefris) {
+                    const excess = totalRefris - expectedRefris;
+                    errors.push(`🥤 Remova ${excess} refrigerantes do ${config.name} (máximo: ${expectedRefris})`);
                 }
             }
         }
     });
     
+    // Adicionar avisos se houver
+    if (orderState.total < 10) {
+        warnings.push('💡 Pedidos pequenos podem ter taxa de entrega adicional');
+    }
+    
     // Mostrar erros se houver
     if (errors.length > 0) {
-        showErrorMessages(errors);
+        showValidationMessages([...errors, ...warnings]);
         return false;
+    }
+    
+    // Mostrar apenas avisos se não houver erros
+    if (warnings.length > 0) {
+        showValidationMessages(warnings, 'warning');
     }
     
     return true;
 }
 
-function showErrorMessages(errors) {
+function showValidationMessages(messages, type = 'error') {
     const errorContainer = document.getElementById('error-messages');
     errorContainer.innerHTML = '';
     
-    errors.forEach(error => {
+    messages.forEach((message, index) => {
         const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-message';
-        errorDiv.textContent = error;
+        errorDiv.className = `validation-message ${type}`;
+        errorDiv.textContent = message;
+        
+        // Estilos baseados no tipo
+        if (type === 'warning') {
+            errorDiv.style.backgroundColor = '#FF8C00';
+        } else {
+            errorDiv.style.backgroundColor = '#DC143C';
+        }
+        
+        errorDiv.style.color = '#fff';
+        errorDiv.style.padding = '15px 20px';
+        errorDiv.style.borderRadius = '8px';
+        errorDiv.style.marginBottom = '10px';
+        errorDiv.style.fontWeight = 'bold';
+        errorDiv.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+        errorDiv.style.animation = 'slideInRight 0.3s ease';
+        errorDiv.style.animationDelay = `${index * 0.1}s`;
+        errorDiv.style.opacity = '0';
+        errorDiv.style.animationFillMode = 'forwards';
+        
         errorContainer.appendChild(errorDiv);
         
-        // Remover após 5 segundos
+        // Remover após 6 segundos para erros, 4 para avisos
+        const timeout = type === 'warning' ? 4000 : 6000;
         setTimeout(() => {
             if (errorDiv.parentNode) {
-                errorDiv.parentNode.removeChild(errorDiv);
+                errorDiv.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    if (errorDiv.parentNode) {
+                        errorDiv.parentNode.removeChild(errorDiv);
+                    }
+                }, 300);
             }
-        }, 5000);
+        }, timeout);
     });
 }
 
