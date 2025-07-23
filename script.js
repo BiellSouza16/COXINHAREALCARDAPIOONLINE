@@ -788,7 +788,7 @@ function sendToWhatsApp() {
     const encodedText = encodeURIComponent(resumoText);
     
     // Número do WhatsApp (substitua pelo número real da lanchonete)
-    const phoneNumber = '5511999999999'; // Formato: código do país + código da área + número
+    const phoneNumber = '5573981741968'; // Formato: código do país + código da área + número
     
     const whatsappURL = `https://wa.me/${phoneNumber}?text=${encodedText}`;
     
