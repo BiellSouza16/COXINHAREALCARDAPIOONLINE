@@ -461,6 +461,9 @@ function initializeBebidas() {
         // Inicializar estado
         orderState.bebidas[itemName] = { quantity: 0, price: price };
         
+        // Aplicar validação numérica
+        applyNumericValidation(qtyInput);
+        
         // Event listeners para botões
         minusBtn.addEventListener('click', () => {
             let currentQty = parseInt(qtyInput.value) || 0;
@@ -1013,7 +1016,7 @@ function generateOrderSummary() {
         dataText = 'hoje';
     } else {
         const amanha = new Date(hoje);
-        amanha.setDate(hoje.getDate() + 1);
+        amanha.setDate(amanha.getDate() + 1);
         if (dataObj.getTime() === amanha.getTime()) {
             dataText = 'amanhã';
         } else {
